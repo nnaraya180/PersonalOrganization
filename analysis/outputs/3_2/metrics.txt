@@ -1,0 +1,17 @@
+Problem 3.2 - RF with Rating + VADER sentiment
+Rows after merge: 1071520
+Class counts: {"2": 938082, "1": 113087, "0": 20351}
+
+Accuracy: 0.6568
+F1 (macro): 0.3452
+
+Classification Report:
+              precision    recall  f1-score   support
+
+ negative(0)      0.043     0.282     0.074      4070
+  neutral(1)      0.135     0.216     0.166     22617
+ positive(2)      0.891     0.718     0.795    187617
+
+    accuracy                          0.657    214304
+   macro avg      0.356     0.405     0.345    214304
+weighted avg      0.795     0.657     0.715    214304

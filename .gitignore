@@ -1,0 +1,20 @@
+# Python / backend
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Node / frontend
+node_modules/
+frontend/node_modules/
+backend/node_modules/
+
+# Mac junk
+.DS_Store
+
+# Large raw data files – keep local, don't push to GitHub
+Data/Raw/RAW_interactions.csv
+Data/Raw/RAW_recipes.csv
+# Or ignore all raw CSVs:
+# Data/Raw/*.csv
+EOF

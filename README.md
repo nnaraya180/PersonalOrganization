@@ -1,0 +1,1 @@
+# Personal Assistant\n\nA local-first assistant to track pantry, fridge, freezer, recipes, nutrition, and daily food journaling. Built with Python (FastAPI) backend and future desktop/mobile frontends.
