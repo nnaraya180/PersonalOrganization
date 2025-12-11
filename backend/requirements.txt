@@ -6,3 +6,4 @@ joblib
 numpy
 python-multipart
 sqlmodel
+openai
