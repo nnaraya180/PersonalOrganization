@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, APIRouter
 from typing import List, Optional
 from sqlmodel import select, Session
 from database import init_db, get_session
+from datetime import date
 from models import (
     Item,
     ItemCreate,
@@ -11,6 +12,7 @@ from models import (
     UserProfile,
 )
 from recommender import recommend_recipes_mvp
+from routers.chat import router as chat_router
 
 from pydantic import BaseModel 
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,23 +24,54 @@ import os
 from openai import OpenAI
 from dotenv import load_dotenv
 
+from recommender import recommend_recipes_mvp
+from routers.chat import router as chat_router
+from routers.ml_predictions import router as ml_router
+
 load_dotenv()  # loads LITELLM_TOKEN from .env if you use one
 
 class RecipeCreate(BaseModel):
     title: str
     ingredients: List[str]  # free text lines like "2 eggs", "olive oil"
 
+    # Optional metadata fields to populate DB columns
+    time_minutes: Optional[int] = None
+    diet: Optional[str] = None
+    cuisine: Optional[str] = None
+    avg_rating: Optional[float] = None
+
+    # Nutrition estimates
+    protein_g: Optional[float] = None
+    carbs_g: Optional[float] = None
+    fat_g: Optional[float] = None
+    calories: Optional[int] = None
+
 class RecipeOut(BaseModel):
     id: int
     title: str
     time_minutes: Optional[int] = None
     diet: Optional[str] = None
+    cuisine: Optional[str] = None
+    avg_rating: Optional[float] = None
+    protein_g: Optional[float] = None
+    carbs_g: Optional[float] = None
+    fat_g: Optional[float] = None
+    calories: Optional[int] = None
     ingredients: List[str]
 
 class ItemUpdate(BaseModel):
     name: str | None = None
     category: str | None = None
     quantity: int | None = None
+    # Optional dates
+    purchase_date: Optional[date] = None
+    expiration_date: Optional[date] = None
+
+    # Optional estimated macros
+    estimated_calories: Optional[float] = None
+    estimated_protein_g: Optional[float] = None
+    estimated_carbs_g: Optional[float] = None
+    estimated_fat_g: Optional[float] = None
 
 class ConsumePayload(BaseModel):
     amount: int
@@ -81,13 +114,26 @@ client = OpenAI(
 )
 # -----------------------------------
 
+# Configure CORS - allow local dev and production frontend
+allowed_origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://meal-mood-frontend.onrender.com",  # Update this with your actual Render frontend URL
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include chat router (provides /chat/what_can_i_make and /chat/log)
+app.include_router(chat_router)
+
+# Include ML predictions router (provides /api/ml/predict-mood-energy and /api/ml/import-recipe)
+app.include_router(ml_router)
 
 
 @app.on_event("startup")
@@ -112,7 +158,11 @@ def list_items(session: Session = Depends(get_session)):
 
 @app.post("/items", response_model=Item)
 def create_item(payload: ItemCreate, session: Session = Depends(get_session)):
-    item = Item(**payload.dict())
+    data = payload.dict()
+    # Default purchase_date to today if not provided
+    if data.get("purchase_date") is None:
+        data["purchase_date"] = date.today()
+    item = Item(**data)
     session.add(item)
     session.commit()
     session.refresh(item)
@@ -120,7 +170,12 @@ def create_item(payload: ItemCreate, session: Session = Depends(get_session)):
 
 @app.post("/items/bulk", response_model=List[Item])
 def create_items_bulk(payload: List[ItemCreate], session: Session = Depends(get_session)):
-    items = [Item(**p.dict()) for p in payload]
+    items = []
+    for p in payload:
+        d = p.dict()
+        if d.get("purchase_date") is None:
+            d["purchase_date"] = date.today()
+        items.append(Item(**d))
     session.add_all(items)
     session.commit()
     # refresh to get IDs; small loop is fine for now
@@ -199,7 +254,18 @@ def match_recipes(min_coverage: float = 0.3, session: Session = Depends(get_sess
 
 @app.post("/recipes/add", summary="Create a recipe from title + ingredient lines")
 def create_recipe(payload: RecipeCreate, session: Session = Depends(get_session)):
-    recipe = Recipe(title=payload.title)
+    recipe = Recipe(
+        title=payload.title,
+        time_minutes=payload.time_minutes,
+        diet=payload.diet,
+        # optional fields
+        cuisine=payload.cuisine,
+        avg_rating=payload.avg_rating,
+        protein_g=payload.protein_g,
+        carbs_g=payload.carbs_g,
+        fat_g=payload.fat_g,
+        calories=payload.calories,
+    )
     session.add(recipe)
     session.flush()  # get recipe.id
 
@@ -226,7 +292,17 @@ def create_recipe(payload: RecipeCreate, session: Session = Depends(get_session)
 def create_recipes_bulk(payload: List[RecipeCreate], session: Session = Depends(get_session)):
     created = []
     for r in payload:
-        recipe = Recipe(title=r.title)
+        recipe = Recipe(
+            title=r.title,
+            time_minutes=r.time_minutes,
+            diet=r.diet,
+            cuisine=r.cuisine,
+            avg_rating=r.avg_rating,
+            protein_g=r.protein_g,
+            carbs_g=r.carbs_g,
+            fat_g=r.fat_g,
+            calories=r.calories,
+        )
         session.add(recipe)
         session.flush()
         for line in r.ingredients:
@@ -319,6 +395,12 @@ def list_recipes(session: Session = Depends(get_session)):
             title=r.title,
             time_minutes=r.time_minutes,
             diet=r.diet,
+            cuisine=getattr(r, "cuisine", None),
+            avg_rating=getattr(r, "avg_rating", None),
+            protein_g=getattr(r, "protein_g", None),
+            carbs_g=getattr(r, "carbs_g", None),
+            fat_g=getattr(r, "fat_g", None),
+            calories=getattr(r, "calories", None),
             ingredients=[x.name for x in ing_rows],
         ))
     return out
@@ -337,6 +419,12 @@ def get_recipe(recipe_id: int, session: Session = Depends(get_session)):
         title=r.title,
         time_minutes=r.time_minutes,
         diet=r.diet,
+        cuisine=getattr(r, "cuisine", None),
+        avg_rating=getattr(r, "avg_rating", None),
+        protein_g=getattr(r, "protein_g", None),
+        carbs_g=getattr(r, "carbs_g", None),
+        fat_g=getattr(r, "fat_g", None),
+        calories=getattr(r, "calories", None),
         ingredients=[x.name for x in ing_rows],
     )
 

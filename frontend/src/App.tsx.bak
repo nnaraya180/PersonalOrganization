@@ -1,14 +1,149 @@
 import React, { useState, useEffect } from "react";
 import "./App.css";
-import { fetchRecipeChat, sendFeedback } from "./api";
-import type { RecipeSuggestion, FeedbackRequest } from "./api";
-import DashboardTab from "./DashboardTab";
+import {
+  fetchPantryItems,
+  createPantryItem,
+  fetchRecipeChat,
+  sendFeedback,
+} from "./api";
+import type {
+  PantryItem,
+  RecipeSuggestion,
+  FeedbackRequest,
+} from "./api";
 import PantryTab from "./PantryTab";
 
 type Tab = "dashboard" | "chat" | "pantry";
 type Theme = "light" | "dark";
 
-// DashboardTab is now provided from ./DashboardTab
+function DashboardTab() {
+  const [items, setItems] = useState<PantryItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchPantryItems()
+      .then(setItems)
+      .catch((err) => {
+        console.error(err);
+        setError("Could not load pantry summary.");
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const totalItems = items.length;
+  const totalQuantity = items.reduce(
+    (sum, it) => sum + (it.quantity ?? 0),
+    0
+  );
+  const distinctCategories = new Set(
+    items
+      .map((it) => (it.category ?? "").trim())
+      .filter((c) => c.length > 0)
+  ).size;
+
+  return (
+    <div className="panel">
+      <h2 className="panel-title">Pantry Overview</h2>
+      <p className="panel-subtitle">
+        High-level snapshot of what&apos;s in your pantry based on live data.
+      </p>
+
+      {loading && <p className="card-text">Loading pantry summary…</p>}
+      {error && (
+        <p className="card-text" style={{ color: "#b91c1c" }}>
+          {error}
+        </p>
+      )}
+
+      {/* Stat cards */}
+      <div className="stat-grid">
+        <div className="card">
+          <div className="stat-label">Total items</div>
+          <div className="stat-number">{totalItems}</div>
+          <div className="stat-help">
+            Count of distinct rows in your Item table.
+          </div>
+        </div>
+        <div className="card">
+          <div className="stat-label">Total quantity</div>
+          <div className="stat-number">{totalQuantity}</div>
+          <div className="stat-help">
+            Sum of the quantity field across all items.
+          </div>
+        </div>
+        <div className="card">
+          <div className="stat-label">Categories</div>
+          <div className="stat-number">{distinctCategories}</div>
+          <div className="stat-help">
+            Number of distinct item categories in your pantry.
+          </div>
+        </div>
+      </div>
+
+      <div className="split-grid">
+        {/* Data viz card with actual images */}
+        <div className="card">
+          <h3 className="card-title">Data Visualization</h3>
+          <p className="card-text">
+            These charts show how meals cluster together based on their
+            underlying data (like nutrition). They&apos;re a preview of how
+            Pantry AI can group foods into patterns that drive smarter
+            recommendations on this dashboard.
+          </p>
+
+          <div className="viz-placeholder">
+            <div>
+              <img
+                src="/kmeans_pca_scatter.png"
+                alt="K-means clusters in PCA space"
+                className="viz-image"
+              />
+              <p className="viz-caption">
+                K-means clusters in a 2D space after PCA. Each dot is a meal;
+                colors show which cluster it belongs to.
+              </p>
+            </div>
+
+            <div>
+              <img
+                src="/kmeans_pca_clusters_k3.png"
+                alt="K-means clustering with 3 clusters"
+                className="viz-image"
+              />
+              <p className="viz-caption">
+                The same data grouped into 3 broader clusters. This helps us see
+                high-level patterns in how meals are organized.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Highlights / insights card */}
+        <div className="card">
+          <h3 className="card-title">Highlights</h3>
+          <ul className="highlights">
+            <li>
+              Total items: <strong>{totalItems}</strong>
+            </li>
+            <li>
+              Total quantity across items: <strong>{totalQuantity}</strong>
+            </li>
+            <li>
+              Distinct categories: <strong>{distinctCategories}</strong>
+            </li>
+          </ul>
+          <p className="card-text">
+            These highlights are now driven directly by your pantry data, while
+            the charts on the left show how we can cluster meals to power future
+            recommendations.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 type ChatMessage = {
   sender: "user" | "assistant";
@@ -598,6 +733,466 @@ function ChatTab() {
 }
 
 // PantryTab is now imported from PantryTab.tsx
+  const [items, setItems] = useState<PantryItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState("");
+  const [quantity, setQuantity] = useState<string>("");
+  const [purchaseDate, setPurchaseDate] = useState<string>("");
+  const [expirationDate, setExpirationDate] = useState<string>("");
+  const [estimatedCalories, setEstimatedCalories] = useState<string>("");
+  const [estimatedProtein, setEstimatedProtein] = useState<string>("");
+  const [estimatedCarbs, setEstimatedCarbs] = useState<string>("");
+  const [estimatedFat, setEstimatedFat] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+  // Edit modal state
+  const [editingItem, setEditingItem] = useState<PantryItem | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editQuantity, setEditQuantity] = useState<string>("");
+  const [editPurchaseDate, setEditPurchaseDate] = useState<string>("");
+  const [editExpirationDate, setEditExpirationDate] = useState<string>("");
+  const [editEstimatedCalories, setEditEstimatedCalories] = useState<string>("");
+  const [editEstimatedProtein, setEditEstimatedProtein] = useState<string>("");
+  const [editEstimatedCarbs, setEditEstimatedCarbs] = useState<string>("");
+  const [editEstimatedFat, setEditEstimatedFat] = useState<string>("");
+
+  // Bulk import state
+  const [bulkText, setBulkText] = useState<string>("");
+  const [bulkLoading, setBulkLoading] = useState(false);
+
+  // Load items on first render
+  useEffect(() => {
+    setLoading(true);
+    fetchPantryItems()
+      .then(setItems)
+      .catch((err) => {
+        console.error(err);
+        setError("Could not load pantry items.");
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      const qtyNum =
+        quantity.trim() === "" ? undefined : Number.parseInt(quantity, 10) || 0;
+
+      const parseOptionalNumber = (s: string) => {
+        if (!s || s.trim() === "") return undefined;
+        const n = Number(s);
+        return Number.isNaN(n) ? undefined : n;
+      };
+
+      const newItem = await createPantryItem({
+        name: name.trim(),
+        category: category.trim() || undefined,
+        quantity: qtyNum,
+        purchase_date: purchaseDate || undefined,
+        expiration_date: expirationDate || undefined,
+        estimated_calories: parseOptionalNumber(estimatedCalories),
+        estimated_protein_g: parseOptionalNumber(estimatedProtein),
+        estimated_carbs_g: parseOptionalNumber(estimatedCarbs),
+        estimated_fat_g: parseOptionalNumber(estimatedFat),
+      });
+
+      setItems((prev) => [...prev, newItem]);
+
+      // clear form
+      setName("");
+      setCategory("");
+      setQuantity("");
+      setPurchaseDate("");
+      setExpirationDate("");
+      setEstimatedCalories("");
+      setEstimatedProtein("");
+      setEstimatedCarbs("");
+      setEstimatedFat("");
+    } catch (err) {
+      console.error(err);
+      setError("Could not save item.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function openEditModal(item: PantryItem) {
+    setEditingItem(item);
+    setEditName(item.name || "");
+    setEditCategory(item.category || "");
+    setEditQuantity(item.quantity !== undefined && item.quantity !== null ? String(item.quantity) : "");
+    setEditPurchaseDate(item.purchase_date || "");
+    setEditExpirationDate(item.expiration_date || "");
+    setEditEstimatedCalories(item.estimated_calories !== undefined && item.estimated_calories !== null ? String(item.estimated_calories) : "");
+    setEditEstimatedProtein(item.estimated_protein_g !== undefined && item.estimated_protein_g !== null ? String(item.estimated_protein_g) : "");
+    setEditEstimatedCarbs(item.estimated_carbs_g !== undefined && item.estimated_carbs_g !== null ? String(item.estimated_carbs_g) : "");
+    setEditEstimatedFat(item.estimated_fat_g !== undefined && item.estimated_fat_g !== null ? String(item.estimated_fat_g) : "");
+  }
+
+  async function handleSaveEdit(patch: Partial<import("./api").CreatePantryItemInput>) {
+    if (!editingItem) return;
+    setEditSaving(true);
+    try {
+      const updated = await (await import("./api")).updatePantryItem(editingItem.id, patch);
+      setItems((prev) => prev.map((it) => (it.id === updated.id ? updated : it)));
+      setEditingItem(null);
+    } catch (err) {
+      console.error(err);
+      setError("Could not save changes.");
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  function closeEditModal() {
+    setEditingItem(null);
+  }
+
+  async function handleBulkImport() {
+    setBulkLoading(true);
+    setError(null);
+    try {
+      const parsed = JSON.parse(bulkText);
+      if (!Array.isArray(parsed)) throw new Error("Expected JSON array of items");
+      const create = (await import("./api")).createPantryItemsBulk;
+      const created = await create(parsed as any[]);
+      setItems((prev) => [...prev, ...created]);
+      setBulkText("");
+    } catch (err) {
+      console.error(err);
+      setError("Bulk import failed: " + (err as Error).message);
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
+  return (
+    <div className="panel">
+      <h2 className="panel-title">Pantry &amp; Recipes</h2>
+      <p className="panel-subtitle">
+        View and manage items and saved recipes. This is where CRUD will live.
+      </p>
+
+      <div className="split-grid">
+        {/* Form side */}
+        <div className="card">
+          <h3 className="card-title">Add / Edit Pantry Item</h3>
+
+          <form className="form-grid" onSubmit={handleSubmit}>
+            <label>
+              <span>Item name</span>
+              <input
+                placeholder="e.g., Black beans"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+
+            <label>
+              <span>Category</span>
+              <input
+                placeholder="e.g., canned, produce, snack"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              />
+            </label>
+
+            <label>
+              <span>Quantity</span>
+              <input
+                placeholder="e.g., 2"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+              />
+            </label>
+
+            <label>
+              <span>Purchase date</span>
+              <input
+                type="date"
+                value={purchaseDate}
+                onChange={(e) => setPurchaseDate(e.target.value)}
+              />
+            </label>
+
+            <label>
+              <span>Expiration date</span>
+              <input
+                type="date"
+                value={expirationDate}
+                onChange={(e) => setExpirationDate(e.target.value)}
+              />
+            </label>
+
+            <label>
+              <span>Estimated calories</span>
+              <input
+                type="number"
+                placeholder="e.g., 300"
+                value={estimatedCalories}
+                onChange={(e) => setEstimatedCalories(e.target.value)}
+              />
+            </label>
+
+            <label>
+              <span>Estimated protein (g)</span>
+              <input
+                type="number"
+                placeholder="e.g., 20"
+                value={estimatedProtein}
+                onChange={(e) => setEstimatedProtein(e.target.value)}
+              />
+            </label>
+
+            <label>
+              <span>Estimated carbs (g)</span>
+              <input
+                type="number"
+                placeholder="e.g., 30"
+                value={estimatedCarbs}
+                onChange={(e) => setEstimatedCarbs(e.target.value)}
+              />
+            </label>
+
+            <label>
+              <span>Estimated fat (g)</span>
+              <input
+                type="number"
+                placeholder="e.g., 10"
+                value={estimatedFat}
+                onChange={(e) => setEstimatedFat(e.target.value)}
+              />
+            </label>
+
+            <div className="button-row">
+              <button className="primary-button" type="submit" disabled={saving}>
+                {saving ? "Saving…" : "Save item"}
+              </button>
+              <button
+                className="secondary-button danger"
+                type="button"
+                disabled
+                title="Delete will be added later"
+              >
+                Delete (future)
+              </button>
+            </div>
+          </form>
+
+          {error && (
+            <p className="card-text small" style={{ color: "#b91c1c" }}>
+              {error}
+            </p>
+          )}
+          {!error && (
+            <p className="card-text small">
+              For the MVP, this form talks to our FastAPI backend. Next
+              iterations will add editing and deleting.
+            </p>
+          )}
+        </div>
+
+        {/* Items / recipes side */}
+        <div className="card">
+          <h3 className="card-title">Current Items</h3>
+
+          {loading ? (
+            <p className="card-text">Loading items…</p>
+          ) : items.length === 0 ? (
+            <p className="card-text">
+              No items yet. Add your first item on the left.
+            </p>
+          ) : (
+            items.map((item) => (
+              <div className="item-row" key={item.id}>
+                <div>
+                  <div className="item-name">{item.name}</div>
+                  <div className="item-meta">
+                          {item.category && <span>{item.category}</span>}
+                          {item.quantity !== null &&
+                            item.quantity !== undefined && (
+                              <span>
+                                {item.category ? " • " : ""}
+                                {item.quantity} unit
+                                {item.quantity === 1 ? "" : "s"}
+                              </span>
+                            )}
+
+                          {item.purchase_date && (
+                            <span>
+                              {" • "}
+                              Purchased: {item.purchase_date}
+                            </span>
+                          )}
+
+                          {item.expiration_date && (
+                            <span>
+                              {" • "}
+                              Expires: {item.expiration_date}
+                            </span>
+                          )}
+
+                          {(item.estimated_calories || item.estimated_protein_g || item.estimated_carbs_g || item.estimated_fat_g) && (
+                            <span>
+                              {" • "}
+                              Macros (est.): {item.estimated_calories ?? "-"} kcal,
+                              {" "}{item.estimated_protein_g ?? "-"}g P,
+                              {" "}{item.estimated_carbs_g ?? "-"}g C,
+                              {" "}{item.estimated_fat_g ?? "-"}g F
+                            </span>
+                          )}
+                    {!item.category &&
+                      (item.quantity === null ||
+                        item.quantity === undefined) && (
+                        <span>No metadata</span>
+                      )}
+                  </div>
+                </div>
+                <div style={{ marginLeft: 12 }}>
+                  <button
+                    className="secondary-button"
+                    onClick={() => openEditModal(item)}
+                    style={{ marginRight: 8 }}
+                  >
+                    Edit
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+
+          <hr className="divider" />
+
+          <div style={{ marginTop: 12 }}>
+            <h4 className="card-title">Bulk import</h4>
+            <p className="card-text small">Paste a JSON array of items (example below) and click Import.</p>
+            <textarea
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              placeholder='[{"name":"Black beans","quantity":2,"category":"canned","expiration_date":"2025-12-31","estimated_calories":300}]'
+              rows={6}
+              style={{ width: "100%", marginBottom: 8 }}
+            />
+            <div className="button-row">
+              <button className="primary-button" onClick={handleBulkImport} disabled={bulkLoading}>
+                {bulkLoading ? "Importing…" : "Import"}
+              </button>
+            </div>
+          </div>
+
+          <div className="recipes-block">
+            <div className="recipes-title">Linked recipes (examples)</div>
+            <ul>
+              <li>Lemony Chickpea Pasta</li>
+              <li>Creamy Spinach Pasta Bake</li>
+            </ul>
+          </div>
+
+          <p className="card-text small">
+            Future: this will be populated directly from the database using our
+            real recipe tables.
+          </p>
+          {/* Edit modal */}
+          {editingItem && (
+            <div className="feedback-modal-overlay">
+              <div className="feedback-modal">
+                <h3>Edit item</h3>
+                <div className="feedback-form">
+                  <label>
+                    <span>Name</span>
+                    <input value={editName} onChange={(e) => setEditName(e.target.value)} />
+                  </label>
+
+                  <label>
+                    <span>Category</span>
+                    <input value={editCategory} onChange={(e) => setEditCategory(e.target.value)} />
+                  </label>
+
+                  <label>
+                    <span>Quantity</span>
+                    <input type="number" value={editQuantity} onChange={(e) => setEditQuantity(e.target.value)} />
+                  </label>
+
+                  <label>
+                    <span>Purchase date</span>
+                    <input type="date" value={editPurchaseDate} onChange={(e) => setEditPurchaseDate(e.target.value)} />
+                  </label>
+
+                  <label>
+                    <span>Expiration date</span>
+                    <input type="date" value={editExpirationDate} onChange={(e) => setEditExpirationDate(e.target.value)} />
+                  </label>
+
+                  <label>
+                    <span>Estimated calories (kcal)</span>
+                    <input type="number" value={editEstimatedCalories} onChange={(e) => setEditEstimatedCalories(e.target.value)} />
+                  </label>
+
+                  <label>
+                    <span>Estimated protein (g)</span>
+                    <input type="number" value={editEstimatedProtein} onChange={(e) => setEditEstimatedProtein(e.target.value)} />
+                  </label>
+
+                  <label>
+                    <span>Estimated carbs (g)</span>
+                    <input type="number" value={editEstimatedCarbs} onChange={(e) => setEditEstimatedCarbs(e.target.value)} />
+                  </label>
+
+                  <label>
+                    <span>Estimated fat (g)</span>
+                    <input type="number" value={editEstimatedFat} onChange={(e) => setEditEstimatedFat(e.target.value)} />
+                  </label>
+
+                  <div className="feedback-buttons">
+                    <button
+                      className="primary-button"
+                      onClick={async () => {
+                        if (!editingItem) return;
+                        const parseOptionalNumber = (s: string) => {
+                          if (!s || s.trim() === "") return undefined;
+                          const n = Number(s);
+                          return Number.isNaN(n) ? undefined : n;
+                        };
+                        const patch: Partial<import("./api").CreatePantryItemInput> = {
+                          name: editName.trim() || undefined,
+                          category: editCategory.trim() || undefined,
+                          quantity: editQuantity.trim() === "" ? undefined : parseInt(editQuantity, 10) || 0,
+                          purchase_date: editPurchaseDate || undefined,
+                          expiration_date: editExpirationDate || undefined,
+                          estimated_calories: parseOptionalNumber(editEstimatedCalories),
+                          estimated_protein_g: parseOptionalNumber(editEstimatedProtein),
+                          estimated_carbs_g: parseOptionalNumber(editEstimatedCarbs),
+                          estimated_fat_g: parseOptionalNumber(editEstimatedFat),
+                        };
+                        await handleSaveEdit(patch);
+                      }}
+                      disabled={editSaving}
+                    >
+                      {editSaving ? "Saving…" : "Save changes"}
+                    </button>
+                    <button className="secondary-button" onClick={closeEditModal} disabled={editSaving}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [theme, setTheme] = useState<Theme>("dark"); // default to dark mode

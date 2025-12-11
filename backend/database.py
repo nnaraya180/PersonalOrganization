@@ -1,6 +1,7 @@
 # database.py
 from pathlib import Path
 from sqlmodel import SQLModel, create_engine, Session
+from models import Item, UserMealLog, UserTasteProfile
 
 # Always put the DB file next to this file, in backend/pantry.db
 BASE_DIR = Path(__file__).resolve().parent
