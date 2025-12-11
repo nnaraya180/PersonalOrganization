@@ -115,15 +115,9 @@ client = OpenAI(
 # -----------------------------------
 
 # Configure CORS - allow local dev and production frontend
-allowed_origins = [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "https://meal-mood-frontend.onrender.com",  # Update this with your actual Render frontend URL
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=["*"],  # For now, allow all (restrict later)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
