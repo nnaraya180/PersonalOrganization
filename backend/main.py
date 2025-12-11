@@ -114,10 +114,14 @@ client = OpenAI(
 )
 # -----------------------------------
 
-# Configure CORS - allow local dev and production frontend
+# Configure CORS - allow our known frontend origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For now, allow all (restrict later)
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://kitchen-pal-r773.onrender.com",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

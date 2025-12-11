@@ -17,10 +17,10 @@ export interface PantryItem {
   estimated_fat_g?: number | null;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export async function fetchPantryItems(): Promise<PantryItem[]> {
-  const res = await fetch(`${API_BASE}/items`);
+  const res = await fetch(`${API_URL}/items`);
   if (!res.ok) {
     throw new Error("Failed to fetch pantry items");
   }
@@ -42,7 +42,7 @@ export interface CreatePantryItemInput {
 export async function createPantryItem(
   input: CreatePantryItemInput
 ): Promise<PantryItem> {
-  const res = await fetch(`${API_BASE}/items`, {
+  const res = await fetch(`${API_URL}/items`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -58,7 +58,7 @@ export async function createPantryItem(
 export async function createPantryItemsBulk(
   input: CreatePantryItemInput[]
 ): Promise<PantryItem[]> {
-  const res = await fetch(`${API_BASE}/items/bulk`, {
+  const res = await fetch(`${API_URL}/items/bulk`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -75,7 +75,7 @@ export async function updatePantryItem(
   itemId: number,
   patch: Partial<CreatePantryItemInput>
 ): Promise<PantryItem> {
-  const res = await fetch(`${API_BASE}/items/${itemId}`, {
+  const res = await fetch(`${API_URL}/items/${itemId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
@@ -89,7 +89,7 @@ export async function updatePantryItem(
 }
 
 export async function deletePantryItem(itemId: number): Promise<void> {
-  const res = await fetch(`${API_BASE}/items/${itemId}`, {
+  const res = await fetch(`${API_URL}/items/${itemId}`, {
     method: "DELETE",
   });
 
@@ -102,7 +102,7 @@ export async function consumePantryItem(
   itemId: number,
   amount: number
 ): Promise<PantryItem> {
-  const res = await fetch(`${API_BASE}/items/${itemId}/consume`, {
+  const res = await fetch(`${API_URL}/items/${itemId}/consume`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ amount }),
@@ -119,7 +119,7 @@ export async function restockPantryItem(
   itemId: number,
   amount: number
 ): Promise<PantryItem> {
-  const res = await fetch(`${API_BASE}/items/${itemId}/restock`, {
+  const res = await fetch(`${API_URL}/items/${itemId}/restock`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ amount }),
@@ -133,7 +133,7 @@ export async function restockPantryItem(
 }
 
 export async function sendChatMessage(message: string): Promise<string> {
-  const resp = await fetch("http://localhost:8000/chat", {
+  const resp = await fetch(`${API_URL}/chat`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -168,7 +168,7 @@ export interface Recipe {
 }
 
 export async function fetchRecipes(): Promise<Recipe[]> {
-  const res = await fetch(`${API_BASE}/recipes`);
+  const res = await fetch(`${API_URL}/recipes`);
   if (!res.ok) {
     throw new Error("Failed to fetch recipes");
   }
@@ -203,7 +203,7 @@ export interface Recommendation {
 export async function recommendRecipes(
   constraints: UserConstraints
 ): Promise<Recommendation[]> {
-  const res = await fetch(`${API_BASE}/recommend`, {
+  const res = await fetch(`${API_URL}/recommend`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(constraints),
@@ -236,7 +236,7 @@ export interface ChatRecipesResponse {
 export async function fetchRecipeChat(
   payload: any
 ): Promise<ChatRecipesResponse> {
-  const res = await fetch(`${API_BASE}/chat/recipes`, {
+  const res = await fetch(`${API_URL}/chat/recipes`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -268,7 +268,7 @@ export interface FeedbackRequest {
 export async function sendFeedback(
   feedback: FeedbackRequest
 ): Promise<{ message: string }> {
-  const res = await fetch(`${API_BASE}/chat/log`, {
+  const res = await fetch(`${API_URL}/chat/log`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(feedback),
@@ -282,7 +282,7 @@ export async function sendFeedback(
 }
 
 export async function getFeedbackLogs(): Promise<any[]> {
-  const res = await fetch(`${API_BASE}/chat/logs`, {
+  const res = await fetch(`${API_URL}/chat/logs`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   });
